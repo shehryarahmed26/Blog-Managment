@@ -1,18 +1,22 @@
-import 'dotenv/config';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createApp } from '../src/app';
 import mongoose from 'mongoose';
+import { createApp } from '../src/app';
 
 const app = createApp();
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function ensureDbConnected() {
   if (mongoose.connection.readyState === 0) {
     const mongoUri = process.env.MONGO_URI;
-    if (!mongoUri) {
-      return res.status(500).json({ error: 'MONGO_URI is not set' });
-    }
+    if (!mongoUri) throw new Error('MONGO_URI is not set');
     mongoose.set('strictQuery', true);
     await mongoose.connect(mongoUri);
   }
-  return app(req as any, res as any);
+}
+
+export default async function handler(req: any, res: any) {
+  try {
+    await ensureDbConnected();
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+  return app(req, res);
 }
